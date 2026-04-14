@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aperture AI | Tactical Dashboard (Secure)</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root {
+            --bg-main: #f5f5f5; 
+            --bg-sidebar: #ffffff; 
+            --bg-panel: #ffffff; 
+            --border: #e0e0e0;   
+            --text-main: #111111; 
+            --text-dim: #888888;  
+            --accent: #000000;    
+            --terminal-green: #00aa00; 
+            --danger: #ff3333;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-main); height: 100vh; display: flex; overflow: hidden; }
+        input, button { outline: none; border: none; font-family: inherit; }
+        .input-box { background: #ffffff; border: 1px solid var(--border); padding: 10px; color: var(--text-main); width: 100%; font-size: 0.85rem; }
+        .btn { background: #f0f0f0; color: var(--text-main); border: 1px solid var(--border); padding: 8px 15px; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
+        .btn:hover { background: #e0e0e0; border-color: var(--text-dim); }
+        .btn-accent { background: var(--text-main); color: var(--bg-sidebar); font-weight: 600; }
+        .btn-accent:hover { background: #333; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: var(--bg-panel); border: 1px solid var(--border); padding: 30px; width: 350px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .modal-header h2 { font-size: 1.2rem; }
+        .close-modal { cursor: pointer; color: var(--text-dim); }
+        .close-modal:hover { color: var(--danger); }
+        .auth-form { display: flex; flex-direction: column; gap: 10px; }
+        .auth-toggle { font-size: 0.8rem; color: var(--text-dim); text-align: center; cursor: pointer; margin-top: 10px;}
+        .auth-toggle:hover { color: var(--text-main); text-decoration: underline; }
+        #authMessage { font-size: 0.75rem; text-align: center; display: none; }
+        .msg-error { color: var(--danger); }
+        .msg-success { color: var(--terminal-green); }
+
+        .sidebar { width: 300px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; gap: 20px; }
+        .brand { margin-bottom: 10px; }
+        .brand h1 { font-size: 1.2rem; letter-spacing: 1px; font-weight: 600; }
+        .brand p { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px;}
+        .wallet-container { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 10px; }
+        .wallet-container .btn { width: 100%; }
+        .sidebar-section { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .section-title { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;}
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .calendar-header h4 { font-size: 0.85rem; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; margin-bottom: 10px; }
+        .cal-day-label { font-size: 0.65rem; color: var(--text-dim); padding-bottom: 5px; }
+        .cal-date { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; cursor: pointer; border: 1px solid transparent; transition: 0.2s; }
+        .cal-date:hover { border-color: #ccc; }
+        .cal-today { background: #e0e0e0; font-weight: bold;}
+        .cal-selected { background: var(--accent); color: #fff; font-weight: bold; }
+        .cal-empty { pointer-events: none; }
+        .cal-has-task { border-bottom: 2px solid var(--text-dim); }
+        .day-planner { background: #ffffff; border: 1px solid var(--border); padding: 10px; display: none; font-size: 0.8rem; flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; }
+        .day-planner.active { display: flex; }
+        .task-list { margin: 10px 0; overflow-y: auto; flex-grow: 1; }
+        .task-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed var(--border); color: #333;}
+        .input-row { display: flex; gap: 5px; }
+
+        .workspace { flex-grow: 1; display: flex; flex-direction: column; padding: 20px; gap: 20px; overflow: hidden; }
+        .top-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: 45%; min-height: 250px; }
+        .panel { background: var(--bg-panel); border: 1px solid var(--border); display: flex; flex-direction: column; padding: 15px; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .panel-header h3 { font-size: 0.9rem; font-weight: 500; }
+        .habit-list { flex-grow: 1; overflow-y: auto; margin-bottom: 15px; }
+        .habit-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem; }
+        .habit-name { flex-grow: 1; display: flex; align-items: center; gap: 8px; }
+        .delete-btn { color: var(--text-dim); cursor: pointer; }
+        .delete-btn:hover { color: var(--danger); }
+        .dot-grid { display: flex; gap: 4px; }
+        .dot { width: 14px; height: 14px; background: #fff; border: 1px solid #ccc; cursor: pointer; }
+        .dot.done { background: var(--text-main); border-color: var(--text-main); }
+        .graph-container { flex-grow: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 5px; padding-top: 10px; }
+        .bar-wrapper { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 5px; }
+        .bar { width: 80%; background: #e0e0e0; transition: height 0.5s ease; min-height: 2%; border-top: 1px solid var(--border); }
+        .bar-label { font-size: 0.65rem; color: var(--text-dim); }
+
+        .terminal-panel { flex-grow: 1; background: var(--bg-panel); border: 1px solid var(--border); display: flex; flex-direction: column; }
+        .terminal-header { background: #eaeaea; border-bottom: 1px solid var(--border); padding: 10px 15px; font-size: 0.75rem; color: var(--text-dim); font-family: 'Courier New', Courier, monospace; display: flex; justify-content: space-between; }
+        .terminal-content { flex-grow: 1; background: #ffffff; padding: 15px; font-family: 'Courier New', monospace; font-size: 0.85rem; color: #333; overflow-y: auto; display: flex; flex-direction: column; }
+        .terminal-content span { color: var(--text-main); }
+        .terminal-content .ai-text { color: var(--terminal-green); }
+        .terminal-input-area { display: flex; border-top: 1px solid var(--border); background: #eaeaea; }
+        .terminal-input-area input { background: transparent; border: none; flex-grow: 1; padding: 15px; color: #000; font-family: 'Courier New', monospace; }
+        .terminal-input-area .prompt-symbol { padding: 15px 0 15px 15px; color: var(--text-dim); font-family: 'Courier New', monospace; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px;}
+        ::-webkit-scrollbar-track { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+
+    <div class="modal-overlay" id="authModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="authTitle">System Login</h2>
+                <i data-lucide="x" class="close-modal" size="20" onclick="closeAuthModal()"></i>
+            </div>
+            
+            <form class="auth-form" id="authForm" onsubmit="handleAuth(event)">
+                <input type="email" class="input-box" id="authEmail" placeholder="Enter Email" required>
+                <input type="password" class="input-box" id="authPassword" placeholder="Enter Password" required>
+                <button type="submit" class="btn btn-accent" id="authSubmitBtn">Initialize Login</button>
+            </form>
+
+            <div id="authMessage"></div>
+
+            <div class="auth-toggle" onclick="toggleAuthMode()" id="authToggleText">
+                No account? Register a new operator.
+            </div>
+        </div>
+    </div>
+
+    <aside class="sidebar">
+        <div class="brand">
+            <h1>APERTURE</h1>
+            <p>System Console</p>
+        </div>
+
+        <div class="wallet-container">
+            <button class="btn btn-accent" id="loginBtn" onclick="openAuthModal()">Login / Register</button>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="section-title"><i data-lucide="calendar" size="14"></i> Planner</div>
+            <div class="calendar-header">
+                <button class="btn" onclick="changeMonth(-1)" style="padding: 2px 8px;">&lt;</button>
+                <h4 id="currentMonthYear">Month Year</h4>
+                <button class="btn" onclick="changeMonth(1)" style="padding: 2px 8px;">&gt;</button>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+
+            <div class="day-planner" id="dayPlanner">
+                <div style="font-size: 0.7rem; color: var(--text-dim); border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 5px;" id="selectedDateTitle">Select a date</div>
+                <div class="task-list" id="dayTaskList"></div>
+                <div class="input-row">
+                    <input type="text" class="input-box" placeholder="Add task..." id="taskInput" onkeypress="handleTaskEnter(event)" disabled>
+                    <button class="btn" onclick="addTask()"><i data-lucide="plus" size="14"></i></button>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="workspace">
+        <div class="top-panels">
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>Habit Engine</h3>
+                    <i data-lucide="check-square" size="16" style="color: var(--text-dim)"></i>
+                </div>
+                <div class="habit-list" id="habitList"></div>
+                <div class="input-row">
+                    <input type="text" class="input-box" placeholder="Track new habit..." id="habitInput" onkeypress="handleHabitEnter(event)" disabled>
+                    <button class="btn" onclick="addHabit()">Add</button>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>7-Day Telemetry</h3>
+                    <i data-lucide="bar-chart-2" size="16" style="color: var(--text-dim)"></i>
+                </div>
+                <div class="graph-container" id="graphContainer"></div>
+            </section>
+        </div>
+
+        <section class="terminal-panel">
+            <div class="terminal-header">
+                <span>TERMINAL // AI_CORE_ACTIVE</span>
+                <span id="dbStatus">STATUS: UNAUTHENTICATED</span>
+            </div>
+            <div class="terminal-content" id="chatBox">
+                <span style="color:var(--text-dim)">Please log in to access terminal commands.</span>
+            </div>
+            <div class="terminal-input-area">
+                <span class="prompt-symbol">&gt;</span>
+                <input type="text" placeholder="Enter command or query..." id="chatInput" onkeypress="handleChatEnter(event)" disabled>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        let currentUser = null;
+        let isLoginMode = true;
+
+        let state = {
+            chatHistory: [],
+            habits: [],
+            calendarTasks: {}
+        };
+
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            try {
+                const options = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'omit' };
+                options.credentials = 'same-origin'; 
+                if (body) options.body = JSON.stringify(body);
+                const response = await fetch(endpoint, options);
+                return await response.json();
+            } catch (error) {
+                console.error("API Error:", error);
+                return null;
+            }
+        }
+
+        async function loadDatabaseData() {
+            if (!currentUser) return;
+            const chats = await apiCall('/api/chat');
+            if (chats && !chats.error) state.chatHistory = chats;
+
+            const habits = await apiCall('/api/habits');
+            if (habits && !habits.error) state.habits = habits;
+
+            const tasks = await apiCall('/api/tasks');
+            if (tasks && !tasks.error) state.calendarTasks = tasks;
+
+            refreshAllUI();
+        }
+
+        function openAuthModal() { document.getElementById('authModal').style.display = 'flex'; }
+        function closeAuthModal() { 
+            document.getElementById('authModal').style.display = 'none'; 
+            document.getElementById('authForm').reset();
+            document.getElementById('authMessage').style.display = 'none';
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('authTitle').textContent = isLoginMode ? "System Login" : "Register Operator";
+            document.getElementById('authSubmitBtn').textContent = isLoginMode ? "Initialize Login" : "Create Account";
+            document.getElementById('authToggleText').textContent = isLoginMode ? "No account? Register a new operator." : "Already registered? Initialize Login.";
+            document.getElementById('authMessage').style.display = 'none';
+        }
+
+        function showMessage(msg, isError) {
+            const el = document.getElementById('authMessage');
+            el.textContent = msg;
+            el.className = isError ? 'msg-error' : 'msg-success';
+            el.style.display = 'block';
+        }
+
+        async function handleAuth(event) {
+            event.preventDefault();
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+            
+            const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/register';
+            const res = await apiCall(endpoint, 'POST', { email, password });
+            
+            if (res && res.success) {
+                if (isLoginMode) {
+                    currentUser = res.email;
+                    updateLoginUI(res.email);
+                    closeAuthModal();
+                    await loadDatabaseData();
+                } else {
+                    showMessage(res.message, false);
+                    setTimeout(toggleAuthMode, 1500);
+                }
+            } else {
+                showMessage(res ? res.message : "Connection failed.", true);
+            }
+        }
+
+        async function handleLogout() { 
+            await apiCall('/api/auth/logout', 'POST');
+            currentUser = null;
+            state = { chatHistory: [], habits: [], calendarTasks: {} };
+            resetLoginUI();
+            refreshAllUI();
+        }
+
+        function updateLoginUI(email) {
+            const btn = document.getElementById('loginBtn');
+            btn.textContent = `Logged in: ${email.split('@')[0]}`;
+            btn.style.background = "#fff";
+            btn.style.color = "#000";
+            btn.onclick = handleLogout;
+            document.getElementById('dbStatus').textContent = "STATUS: SECURE LINK ACTIVE";
+            
+            document.getElementById('chatInput').disabled = false;
+            document.getElementById('habitInput').disabled = false;
+            document.getElementById('taskInput').disabled = false;
+        }
+
+        function resetLoginUI() {
+            const btn = document.getElementById('loginBtn');
+            btn.textContent = "Login / Register";
+            btn.style.background = "var(--text-main)";
+            btn.style.color = "var(--bg-sidebar)";
+            btn.onclick = openAuthModal;
+            document.getElementById('dbStatus').textContent = "STATUS: UNAUTHENTICATED";
+            
+            document.getElementById('chatInput').disabled = true;
+            document.getElementById('habitInput').disabled = true;
+            document.getElementById('taskInput').disabled = true;
+            
+            document.getElementById('chatBox').innerHTML = '<span style="color:var(--text-dim)">Please log in to access terminal commands.</span>';
+        }
+
+        function refreshAllUI() {
+            if(currentUser) renderChat();
+            renderHabits();
+            updateGraph();
+            renderCalendar();
+            
+            const t = new Date();
+            selectDate(t.getFullYear(), t.getMonth(), t.getDate(), `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`);
+        }
+
+        const chatBox = document.getElementById('chatBox');
+        
+        function renderChat() {
+            chatBox.innerHTML = state.chatHistory.map(msg => {
+                if (msg.role === 'user') return `<span>USER: ${msg.content}</span>`;
+                return `<span class='ai-text'>AI: ${msg.content}</span>`;
+            }).join('');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function handleChatEnter(e) { if(e.key === 'Enter') sendMessage(); }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg || !currentUser) return;
+
+            state.chatHistory.push({role: 'user', content: msg});
+            renderChat();
+            input.value = "";
+
+            const response = await apiCall('/api/chat', 'POST', { message: msg });
+            if (response && response.reply) {
+                state.chatHistory.push({role: 'ai', content: response.reply});
+                renderChat();
+            }
+        }
+
+        function renderHabits() {
+            const list = document.getElementById('habitList');
+            list.innerHTML = "";
+            state.habits.forEach((habit) => {
+                let dotsHTML = habit.progress.map((done, dayIndex) => 
+                    `<div class="dot ${done ? 'done' : ''}" onclick="toggleHabit(${habit.id}, ${dayIndex})"></div>`
+                ).join('');
+
+                list.innerHTML += `
+                    <div class="habit-row">
+                        <div class="habit-name">
+                            <i data-lucide="x" class="delete-btn" size="14" onclick="deleteHabit(${habit.id})"></i>
+                            ${habit.name}
+                        </div>
+                        <div class="dot-grid">${dotsHTML}</div>
+                    </div>
+                `;
+            });
+            lucide.createIcons();
+            updateGraph();
+        }
+
+        function handleHabitEnter(e) { if(e.key === 'Enter') addHabit(); }
+
+        async function addHabit() {
+            const input = document.getElementById('habitInput');
+            const name = input.value.trim();
+            if (!name || !currentUser) return;
+            input.value = "";
+            
+            const res = await apiCall('/api/habits', 'POST', { name: name });
+            if (res && res.id) {
+                state.habits.push({ id: res.id, name: name, progress: Array(7).fill(false) });
+                renderHabits();
+            }
+        }
+
+        async function toggleHabit(habitId, dayIndex) {
+            if(!currentUser) return;
+            const habitIndex = state.habits.findIndex(h => h.id === habitId);
+            if (habitIndex > -1) {
+                state.habits[habitIndex].progress[dayIndex] = !state.habits[habitIndex].progress[dayIndex];
+                renderHabits();
+                await apiCall('/api/habits/toggle', 'POST', { habit_id: habitId, day_index: dayIndex });
+            }
+        }
+
+        async function deleteHabit(habitId) {
+            if(!currentUser) return;
+            state.habits = state.habits.filter(h => h.id !== habitId);
+            renderHabits();
+            await apiCall(`/api/habits/${habitId}`, 'DELETE');
+        }
+
+        function updateGraph() {
+            const container = document.getElementById('graphContainer');
+            container.innerHTML = "";
+            for(let dayIndex = 0; dayIndex < 7; dayIndex++) {
+                let totalHabits = state.habits.length;
+                let completed = 0;
+                if (totalHabits > 0) { state.habits.forEach(h => { if(h.progress[dayIndex]) completed++; }); }
+                let percentage = totalHabits === 0 ? 2 : Math.max(2, (completed / totalHabits) * 100);
+                let barColor = percentage === 100 ? '#000000' : '#e0e0e0';
+
+                container.innerHTML += `
+                    <div class="bar-wrapper">
+                        <div class="bar" style="height: ${percentage}%; background: ${barColor}"></div>
+                        <span class="bar-label">D${dayIndex + 1}</span>
+                    </div>
+                `;
+            }
+        }
+
+        let currentDate = new Date();
+        let selectedDateString = null;
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const today = new Date();
+
+            document.getElementById('currentMonthYear').textContent = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(currentDate).toUpperCase();
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = `<div class="cal-day-label">S</div><div class="cal-day-label">M</div><div class="cal-day-label">T</div><div class="cal-day-label">W</div><div class="cal-day-label">T</div><div class="cal-day-label">F</div><div class="cal-day-label">S</div>`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for (let i = 0; i < firstDay; i++) { grid.innerHTML += `<div class="cal-date cal-empty"></div>`; }
+            for (let day = 1; day <= daysInMonth; day++) {
+                let dateKey = `${year}-${month}-${day}`;
+                let isToday = (day === today.getDate() && month === today.getMonth() && year === today.getFullYear());
+                let hasTask = state.calendarTasks[dateKey] && state.calendarTasks[dateKey].length > 0;
+                
+                let classes = "cal-date";
+                if (isToday) classes += " cal-today";
+                if (selectedDateString === dateKey) classes += " cal-selected";
+                if (hasTask) classes += " cal-has-task";
+
+                grid.innerHTML += `<div class="${classes}" onclick="selectDate(${year}, ${month}, ${day}, '${dateKey}')">${day}</div>`;
+            }
+        }
+
+        function changeMonth(dir) {
+            currentDate.setMonth(currentDate.getMonth() + dir);
+            document.getElementById('dayPlanner').style.display = 'none';
+            selectedDateString = null;
+            renderCalendar();
+        }
+
+        function selectDate(year, month, day, dateKey) {
+            selectedDateString = dateKey;
+            renderCalendar();
+            const planner = document.getElementById('dayPlanner');
+            planner.style.display = 'flex';
+            const displayDate = new Date(year, month, day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            document.getElementById('selectedDateTitle').textContent = `[ ${displayDate.toUpperCase()} ]`;
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const list = document.getElementById('dayTaskList');
+            list.innerHTML = "";
+            let tasks = state.calendarTasks[selectedDateString] || [];
+            
+            if (tasks.length === 0) {
+                list.innerHTML = `<span style="color: var(--text-dim);">No directives.</span>`;
+            } else {
+                tasks.forEach((task) => {
+                    list.innerHTML += `
+                        <div class="task-item">
+                            <span>> ${task.description}</span>
+                            <i data-lucide="x" style="cursor:pointer;" size="14" onclick="deleteTask(${task.id}, '${selectedDateString}')"></i>
+                        </div>
+                    `;
+                });
+                lucide.createIcons();
+            }
+        }
+
+        function handleTaskEnter(e) { if(e.key === 'Enter') addTask(); }
+
+        async function addTask() {
+            const input = document.getElementById('taskInput');
+            const desc = input.value.trim();
+            if (!desc || !selectedDateString || !currentUser) return;
+            input.value = "";
+
+            const res = await apiCall('/api/tasks', 'POST', { date: selectedDateString, description: desc });
+            if (res && res.id) {
+                if (!state.calendarTasks[selectedDateString]) { state.calendarTasks[selectedDateString] = []; }
+                state.calendarTasks[selectedDateString].push({ id: res.id, description: desc });
+                renderTasks();
+                renderCalendar();
+            }
+        }
+
+        async function deleteTask(taskId, dateKey) {
+            if(!currentUser) return;
+            if (state.calendarTasks[dateKey]) {
+                state.calendarTasks[dateKey] = state.calendarTasks[dateKey].filter(t => t.id !== taskId);
+                renderTasks();
+                renderCalendar();
+            }
+            await apiCall(`/api/tasks/${taskId}`, 'DELETE');
+        }
+
+        window.onload = async () => { 
+            const authStatus = await apiCall('/api/auth/me');
+            if (authStatus && authStatus.logged_in) {
+                currentUser = authStatus.email;
+                updateLoginUI(authStatus.email);
+                await loadDatabaseData();
+            } else {
+                resetLoginUI();
+                refreshAllUI();
+            }
+        };
+    </script>
+</body>
+</html>
